@@ -281,12 +281,27 @@ export default function ReportPage() {
             </div>
           </section>
 
-          {/* 3. SUMMARY */}
-          <section className="print-section mt-10">
-            <SectionHeading>Executive Summary</SectionHeading>
-            <p className="text-sm text-body leading-relaxed max-w-4xl">
-              {analysis.summary}
-            </p>
+          {/* 3. SUMMARY & ROAST CORNER */}
+          <section className="print-section mt-10 grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+            <div className="md:col-span-2">
+              <SectionHeading>Executive Summary</SectionHeading>
+              <p className="text-sm text-body leading-relaxed">
+                {analysis.summary}
+              </p>
+            </div>
+            <div className="bg-error/5 border border-error/20 rounded-xl p-5 shadow-xs relative overflow-hidden">
+              <div className="absolute -right-3 -top-3 text-7xl opacity-5 select-none font-bold text-error">🔥</div>
+              <div className="flex items-center gap-2 text-error text-xs font-bold uppercase tracking-wider mb-3">
+                <span className="size-1.5 rounded-full bg-error animate-pulse" />
+                <span>Grumpy Partner's Roast Corner</span>
+              </div>
+              <h4 className="font-display text-sm font-semibold italic text-ink mb-2">
+                "Let's be completely real..."
+              </h4>
+              <p className="text-xs text-body leading-relaxed italic text-muted">
+                {analysis.debate.bear_case}
+              </p>
+            </div>
           </section>
 
           <SectionDivider />
@@ -344,13 +359,18 @@ export default function ReportPage() {
                   className="border border-hairline rounded-lg p-5 bg-canvas flex flex-col gap-3"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-bold text-sm text-ink truncate">
-                        {investor.name}
-                      </span>
-                      <span className="text-[10px] text-muted-soft uppercase tracking-wider">
-                        {investor.tier}
-                      </span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="size-8 rounded-full bg-surface-soft border border-hairline flex items-center justify-center font-bold text-xs shrink-0 text-brand-indigo select-none">
+                        {investor.name.charAt(0)}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-bold text-sm text-ink truncate">
+                          {investor.name}
+                        </span>
+                        <span className="text-[10px] text-muted-soft uppercase tracking-wider">
+                          {investor.tier}
+                        </span>
+                      </div>
                     </div>
                     <DecisionStamp decision={investor.decision} />
                   </div>
@@ -416,7 +436,13 @@ export default function ReportPage() {
 
           {/* 7. COMPETITIVE ANALYSIS */}
           <section className="print-section">
-            <SectionHeading>Competitive Analysis</SectionHeading>
+            <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+              <SectionHeading>Competitive Analysis</SectionHeading>
+              <span className="inline-flex items-center gap-1.5 bg-brand-teal/10 border border-brand-teal/20 px-2.5 py-1 rounded-pill text-[9px] font-bold text-brand-teal uppercase tracking-wider">
+                <span className="size-1.5 rounded-full bg-brand-teal animate-pulse" />
+                Live 2026 RAG Verified
+              </span>
+            </div>
 
             <h3 className="text-xs font-bold uppercase tracking-wider text-muted mb-4">
               Competitor Landscape

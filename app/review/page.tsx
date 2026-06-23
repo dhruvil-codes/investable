@@ -48,8 +48,17 @@ export default function ReviewPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const terminalEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll the terminal logs as they are added
+  useEffect(() => {
+    if (terminalEndRef.current) {
+      terminalEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [terminalLogs]);
 
   const activeText = extractedText || pastedText;
   const hasText = activeText.length > 0;
@@ -191,6 +200,7 @@ export default function ReviewPage() {
     e.preventDefault();
     if (!hasText) return;
     setIsAnalyzing(true);
+    setTerminalLogs([]);
 
     try {
       const response = await fetch("/api/analyze", {
@@ -202,13 +212,46 @@ export default function ReviewPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Analysis failed with status ${response.status}`);
+        throw new Error(`Analysis failed with status ${response.status}`);
       }
 
-      const result = await response.json();
-      sessionStorage.setItem("gemini_analysis", JSON.stringify(result));
-      router.push("/report");
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("No response stream found.");
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.trim().startsWith("data: ")) {
+            try {
+              const payload = JSON.parse(line.trim().slice(6));
+              if (payload.type === "status") {
+                setProgress(payload.progress);
+                const timestamp = new Date().toLocaleTimeString();
+                setTerminalLogs((prev) => [...prev, `[${timestamp}] ${payload.message}`]);
+              } else if (payload.type === "result") {
+                sessionStorage.setItem("gemini_analysis", JSON.stringify(payload.data));
+                router.push("/report");
+                return;
+              } else if (payload.type === "error") {
+                throw new Error(payload.message);
+              }
+            } catch (err) {
+              console.error("Failed to parse stream payload:", err);
+            }
+          }
+        }
+      }
     } catch (err) {
       console.error("Analysis failed:", err);
       setIsAnalyzing(false);
@@ -225,6 +268,7 @@ export default function ReviewPage() {
     setExtractionError(null);
     setIsAnalyzing(false);
     setProgress(0);
+    setTerminalLogs([]);
   };
 
   return (
@@ -385,35 +429,51 @@ export default function ReviewPage() {
 
           {/* Phase 2: Animated Loading Simulation */}
           {isAnalyzing && (
-            <Card className="border border-hairline bg-canvas shadow-sm rounded-xl overflow-hidden py-16 px-8 flex flex-col items-center justify-center text-center gap-8 min-h-[420px]">
+            <Card className="border border-hairline bg-canvas shadow-sm rounded-xl overflow-hidden py-10 px-6 flex flex-col items-center justify-center text-center gap-6 min-h-[500px]">
               <div className="relative">
-                <div className="size-20 rounded-full bg-surface-soft border border-hairline flex items-center justify-center shadow-inner animate-pulse-subtle">
-                  <span className="text-3xl">🕵️‍♂️</span>
+                <div className="size-16 rounded-full bg-surface-soft border border-hairline flex items-center justify-center shadow-inner animate-pulse-subtle">
+                  <span className="text-2xl">🕵️‍♂️</span>
                 </div>
-                <div className="absolute top-0 right-0 size-6 bg-brand-indigo text-white rounded-full flex items-center justify-center text-[10px] font-bold animate-bounce">
+                <div className="absolute top-0 right-0 size-5 bg-brand-indigo text-white rounded-full flex items-center justify-center text-[9px] font-bold animate-bounce">
                   !
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2 max-w-md w-full">
-                <h3 className="font-display text-2xl md:text-3xl font-normal italic tracking-tight text-ink">
-                  Analyzing Pitch Architecture
+              <div className="flex flex-col gap-1 max-w-md w-full">
+                <h3 className="font-display text-xl md:text-2xl font-normal italic tracking-tight text-ink">
+                  Running Agentic Valuation Loop
                 </h3>
-                <p className="text-xs font-semibold text-brand-coral uppercase tracking-wider h-6 animate-pulse" aria-live="polite">
+                <p className="text-[11px] font-semibold text-brand-coral uppercase tracking-wider h-5 animate-pulse" aria-live="polite">
                   {LOADING_MESSAGES[loadingMessageIndex]}
                 </p>
               </div>
 
-              <div className="w-full max-w-md bg-surface-strong h-3 rounded-full overflow-hidden border border-hairline shadow-inner">
-                <div
-                  className="bg-brand-indigo h-full rounded-full transition-all duration-100 ease-out"
-                  style={{ width: `${progress}%` }}
-                />
+              {/* Real-time Agent Log Console */}
+              <div className="w-full max-w-xl bg-neutral-900 border border-neutral-800 rounded-lg p-4 font-mono text-[10px] text-neutral-300 text-left h-48 overflow-y-auto shadow-inner flex flex-col gap-1.5 scrollbar-thin select-text">
+                {terminalLogs.map((log, i) => (
+                  <div key={i} className="leading-relaxed whitespace-pre-wrap">
+                    <span className="text-brand-indigo font-bold mr-1.5">{log.slice(0, 10)}</span>
+                    <span className="text-emerald-400 font-medium">{log.slice(10)}</span>
+                  </div>
+                ))}
+                {terminalLogs.length === 0 && (
+                  <div className="text-neutral-500 italic animate-pulse">Establishing secure agentic node protocols...</div>
+                )}
+                <div ref={terminalEndRef} />
               </div>
 
-              <span className="text-[10px] font-mono text-muted-soft">
-                PROGRESS: {Math.floor(progress)}% COMPLETE
-              </span>
+              <div className="w-full max-w-xl flex flex-col gap-2">
+                <div className="w-full bg-surface-strong h-2.5 rounded-full overflow-hidden border border-hairline shadow-inner">
+                  <div
+                    className="bg-brand-indigo h-full rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[10px] font-mono text-muted-soft">
+                  <span>AGENT PIPELINE</span>
+                  <span>PROGRESS: {Math.floor(progress)}% COMPLETE</span>
+                </div>
+              </div>
             </Card>
           )}
 
